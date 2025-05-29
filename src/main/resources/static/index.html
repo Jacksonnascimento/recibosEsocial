@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gerador de Scripts SQL</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    color: #333;
+    margin: 0; padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+  }
+  form {
+    background: #fff;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto 30px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.1);
+  }
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  input[type="file"] {
+    margin-bottom: 15px;
+  }
+  .checkbox-container {
+    margin-bottom: 15px;
+  }
+  button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    font-size: 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.25s ease;
+  }
+  button:hover:not(:disabled) {
+    background-color: #2980b9;
+  }
+  button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+  }
+  #status {
+    max-width: 600px;
+    margin: 0 auto 20px;
+    text-align: center;
+    font-weight: 600;
+  }
+  #respostas {
+    max-width: 600px;
+    margin: 0 auto 30px;
+    background: #fff;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.05);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .mensagem {
+    margin-bottom: 12px;
+  }
+  .mensagem.success {
+    color: #27ae60;
+  }
+  .mensagem.error {
+    color: #e74c3c;
+  }
+  .download-link {
+    display: inline-block;
+    margin: 6px 10px 6px 0;
+    padding: 5px 10px;
+    background: #2ecc71;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  .download-link:hover {
+    background: #27ae60;
+  }
+  #downloads-section {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.1);
+  }
+  #downloads-section h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: #34495e;
+  }
+  #arquivo-lista {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+  }
+  #arquivo-lista label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  #arquivo-lista input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+  }
+  .btn-group {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Gerador de Scripts SQL a partir de XML</h1>
+
+<form id="upload-form">
+  <label for="files">Selecione arquivos XML (pode ser múltiplos):</label>
+  <input type="file" id="files" name="files" accept=".xml" multiple required />
+  <div class="checkbox-container">
+    <label><input type="checkbox" id="modoInsert" name="modoInsert" checked /> Gerar scripts em modo INSERT</label>
+  </div>
+  <button type="submit" id="btn-enviar">Enviar e Gerar Scripts</button>
+</form>
+
+<div id="status"></div>
+
+<div id="respostas"></div>
+
+<div id="downloads-section" style="display:none;">
+  <h2>Arquivos Gerados</h2>
+  <div id="arquivo-lista"></div>
+  <div class="btn-group">
+    <button id="baixar-unico" disabled>Baixar Todos em 1 Arquivo</button>
+    <button id="baixar-zip" disabled>Baixar Vários em ZIP</button>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('upload-form');
+  const status = document.getElementById('status');
+  const respostas = document.getElementById('respostas');
+  const arquivoLista = document.getElementById('arquivo-lista');
+  const downloadsSection = document.getElementById('downloads-section');
+  const btnBaixarUnico = document.getElementById('baixar-unico');
+  const btnBaixarZip = document.getElementById('baixar-zip');
+
+  let arquivosGerados = [];
+
+  form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const files = document.getElementById('files').files;
+  const modoInsert = document.getElementById('modoInsert').checked;
+
+  if (!files.length) {
+    alert('Selecione ao menos um arquivo XML.');
+    return;
+  }
+
+  status.textContent = 'Processando arquivos...';
+  respostas.innerHTML = '';  // Limpa mensagens antigas
+  downloadsSection.style.display = 'none';
+  arquivosGerados = [];
+  btnBaixarUnico.disabled = true;
+  btnBaixarZip.disabled = true;
+  arquivoLista.innerHTML = '';
+
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('files', file);
+  }
+  formData.append('modoInsert', modoInsert);
+
+  try {
+    const res = await fetch('/api/upload-arquivos', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Erro ao enviar arquivos.');
+    const data = await res.json();
+
+    // Extrai os nomes dos arquivos .sql gerados (supondo array de strings)
+    arquivosGerados = [];
+    let erroDetectado = false;
+
+    console.log('Resposta do backend:', data);
+
+    data.forEach(msg => {
+      if (msg.toLowerCase().includes('erro')) {
+        erroDetectado = true;
+      }
+      const match = msg.match(/Script salvo em: .*scripts_gerados[\\/](.+\.sql)/i);
+      if (match && match[1]) {
+        arquivosGerados.push(match[1]);
+      }
+    });
+
+    if (erroDetectado) {
+      status.textContent = 'Erro ao processar um ou mais arquivos.';
+      status.style.color = '#e74c3c';
+    } else {
+      status.textContent = 'Processamento concluído com sucesso!';
+      status.style.color = '#27ae60';
+    }
+
+    if (arquivosGerados.length > 0) {
+      downloadsSection.style.display = 'block';
+      atualizarListaArquivos();
+    } else {
+      downloadsSection.style.display = 'none';
+    }
+
+  } catch (error) {
+    status.textContent = 'Erro: ' + error.message;
+    status.style.color = '#e74c3c';
+  }
+});
+
+
+  function atualizarListaArquivos() {
+    arquivoLista.innerHTML = '';
+    arquivosGerados.forEach((nome, i) => {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = nome;
+      checkbox.checked = true;
+      checkbox.addEventListener('change', atualizarBotoesDownload);
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(nome));
+      // Link individual de download
+      const link = document.createElement('a');
+      link.href = `/api/download/${encodeURIComponent(nome)}`;
+      link.target = '_blank';
+      link.textContent = ' ↗';
+      link.title = 'Baixar individualmente';
+      link.style.marginLeft = '8px';
+      link.style.color = '#2980b9';
+      label.appendChild(link);
+
+      arquivoLista.appendChild(label);
+    });
+    atualizarBotoesDownload();
+  }
+
+  function atualizarBotoesDownload() {
+    const checked = [...arquivoLista.querySelectorAll('input[type="checkbox"]:checked')];
+    btnBaixarUnico.disabled = checked.length === 0;
+    btnBaixarZip.disabled = checked.length === 0;
+  }
+
+  btnBaixarUnico.addEventListener('click', () => {
+    const selecionados = [...arquivoLista.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+    if (!selecionados.length) return alert('Selecione ao menos um arquivo para baixar.');
+
+    // Baixar o arquivo único concatenado
+    const params = new URLSearchParams();
+    selecionados.forEach(nome => params.append('arquivos', nome));
+    const url = `/api/download/completo?${params.toString()}`;
+    window.open(url, '_blank');
+  });
+
+  btnBaixarZip.addEventListener('click', () => {
+    const selecionados = [...arquivoLista.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+    if (!selecionados.length) return alert('Selecione ao menos um arquivo para baixar.');
+
+    // Baixar múltiplos em ZIP
+    const params = new URLSearchParams();
+    selecionados.forEach(nome => params.append('arquivos', nome));
+    const url = `/api/download-multiple?${params.toString()}`;
+    window.open(url, '_blank');
+  });
+</script>
+
+</body>
+</html>
