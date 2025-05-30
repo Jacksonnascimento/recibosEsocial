@@ -5,8 +5,8 @@ import java.nio.file.*;
 import java.util.*;
 
 public class FonteDados {
-
-    private static final String PASTA_BASE = System.getProperty("user.home") + File.separator + "recibos-fontes-dados";
+     
+    private static final String PASTA_BASE = "arquivos" + File.separator + "recibos-fontes-dados";
     private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator
             + "fontes de dados";
 
