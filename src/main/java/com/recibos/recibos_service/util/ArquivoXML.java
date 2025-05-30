@@ -27,13 +27,13 @@ public class ArquivoXML {
 
     public void infXML(File arquivo, String tipoArquivoEve) throws ParserConfigurationException, SAXException {
         try {
-            //File file = new File("E:\\Jackson\\GitHub\\RecibosnoSistemaFol\\ID1137989050000002022092618390800633.S-2200.xml");
+            
             File file = arquivo;
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
             Document document = db.parse(file);
             document.getDocumentElement().normalize();
-            //System.out.println(document.getDocumentElement().getNodeName());
+           
             
             switch(tipoArquivoEve){
                 case "2200.xml":
@@ -89,7 +89,7 @@ public class ArquivoXML {
                 nList = document.getElementsByTagName("retornoEvento");
                 for (int temp = 0; temp < nList.getLength(); temp++) {
                     Node nNode = nList.item(temp);
-                    // System.out.println("\nCurrent Element :" + nNode.getNodeName());
+                    
                     if (nNode.getNodeType() == Node.ELEMENT_NODE) {
                         Element eElement = (Element) nNode;
                         recibo = eElement.getElementsByTagName("nrRecibo").item(0).getTextContent();

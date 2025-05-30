@@ -20,9 +20,9 @@ public class ArquivoSQL {
                 writer.write(conteudoSQL);
             }
 
-            System.out.println("✅ Script salvo em: " + file.getAbsolutePath());
+            
         } catch (IOException e) {
-            System.err.println("Erro ao salvar script: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }

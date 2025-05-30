@@ -17,13 +17,12 @@ public class GeradorSQLRecibo {
 
     public String gerarSQL(File xmlFile, String nomeArquivoOriginal)
             throws ParserConfigurationException, SAXException, IOException {
-        System.out.println("Arquivo para gerar SQL: " + xmlFile.getAbsolutePath());
-        System.out.println("Nome original do arquivo: " + nomeArquivoOriginal);
+       
 
-        // Extrair tipoEvento do nome original (últimos 8 caracteres)
+       
         String tipoEvento = nomeArquivoOriginal.substring(nomeArquivoOriginal.length() - 8);
 
-        // Usar tipoEvento para continuar normalmente
+        
         leitorXML.infXML(xmlFile, tipoEvento);
 
         String sql = "";

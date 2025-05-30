@@ -8,8 +8,15 @@ public class ArquivosESocial {
     FonteDados fonte;
 
     public ArquivosESocial(boolean insert) throws URISyntaxException {
-        fonte = new FonteDados();
+        try {
+            fonte = new FonteDados();
+        } catch (IOException e) {
+            e.printStackTrace();
+           
+        }
+
         fonte.iniciarCaminhodosEventos(insert);
+    
     }
 
     public String s2200(String matricula, String recibo, String servidor, String database, String user, String senha)

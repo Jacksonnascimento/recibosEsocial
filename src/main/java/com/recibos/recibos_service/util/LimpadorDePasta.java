@@ -16,8 +16,6 @@ public class LimpadorDePasta {
                     }
                 }
             }
-        } else {
-            System.out.println("Pasta inválida: " + caminhoPasta);
-        }
+        } 
     }
 }
