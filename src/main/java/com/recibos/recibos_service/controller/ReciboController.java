@@ -3,14 +3,16 @@ package com.recibos.recibos_service.controller;
 import com.recibos.recibos_service.util.FonteDadoDTO;
 import com.recibos.recibos_service.util.FonteDados;
 import com.recibos.recibos_service.util.GeradorSQLRecibo;
+import com.recibos.recibos_service.util.LimpadorDePasta;
 
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.http.HttpHeaders;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.InputStreamResource;
+//import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +33,7 @@ public class ReciboController {
             @RequestParam("files") MultipartFile[] files,
             @RequestParam(name = "modoInsert", defaultValue = "true") boolean modoInsert) {
         List<String> respostas = new ArrayList<>();
-
+        new LimpadorDePasta("scripts_gerados");
         for (MultipartFile file : files) {
             try {
                 GeradorSQLRecibo geradorSQL = new GeradorSQLRecibo(modoInsert);
@@ -88,29 +90,26 @@ public class ReciboController {
 
     // Endpoint pra baixar múltiplos arquivos em ZIP
     @GetMapping("/download-multiple")
-    public ResponseEntity<InputStreamResource> downloadMultiple(@RequestParam List<String> arquivos)
-            throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ZipOutputStream zos = new ZipOutputStream(baos);
-
-        for (String nomeArquivo : arquivos) {
-            File file = new File("scripts_gerados", nomeArquivo);
-            if (file.exists()) {
-                zos.putNextEntry(new ZipEntry(file.getName()));
-                Files.copy(file.toPath(), zos);
-                zos.closeEntry();
+    public ResponseEntity<StreamingResponseBody> downloadMultiple(@RequestParam List<String> arquivos) {
+        StreamingResponseBody stream = outputStream -> {
+            try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
+                for (String nomeArquivo : arquivos) {
+                    File file = new File("scripts_gerados", nomeArquivo);
+                    if (file.exists()) {
+                        zos.putNextEntry(new ZipEntry(file.getName()));
+                        try (InputStream fis = new FileInputStream(file)) {
+                            fis.transferTo(zos);
+                        }
+                        zos.closeEntry();
+                    }
+                }
             }
-        }
-
-        zos.close();
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-        InputStreamResource resource = new InputStreamResource(bais);
+        };
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=arquivos.zip")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(resource);
+                .body(stream);
     }
 
     @GetMapping("/download/completo")
