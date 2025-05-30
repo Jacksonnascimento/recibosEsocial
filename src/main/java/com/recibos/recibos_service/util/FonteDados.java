@@ -7,18 +7,18 @@ import java.util.*;
 public class FonteDados {
 
     private static final String PASTA_BASE = System.getProperty("user.home") + File.separator + "recibos-fontes-dados";
-    private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator + "fontes de dados";
+    private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator
+            + "fontes de dados";
 
     private static final List<String> NOMES_ARQUIVOS = Arrays.asList(
-        "eventoS2200.txt",
-        "eventoS2200_insert.txt",
-        "eventoS2299.txt",
-        "eventoS2299_insert.txt",
-        "eventoS3000.txt",
-        "eventoS3000_insert.txt",
-        "eventosTerceiraFase.txt",
-        "eventosTerceiraFase_insert.txt"
-    );
+            "eventoS2200.txt",
+            "eventoS2200_insert.txt",
+            "eventoS2299.txt",
+            "eventoS2299_insert.txt",
+            "eventoS3000.txt",
+            "eventoS3000_insert.txt",
+            "eventosTerceiraFase.txt",
+            "eventosTerceiraFase_insert.txt");
 
     private final Map<String, File> arquivos = new HashMap<>();
 
@@ -68,9 +68,9 @@ public class FonteDados {
     private void setCampoArquivo(String nomeBase, File arquivo) {
         switch (nomeBase) {
             case "eventosTerceiraFase" -> this.arquivoEventosTerceiraFase = arquivo;
-            case "eventoS2200"         -> this.arquivoS2200 = arquivo;
-            case "eventoS2299"         -> this.arquivoS2299 = arquivo;
-            case "eventoS3000"         -> this.arquivoS3000 = arquivo;
+            case "eventoS2200" -> this.arquivoS2200 = arquivo;
+            case "eventoS2299" -> this.arquivoS2299 = arquivo;
+            case "eventoS3000" -> this.arquivoS3000 = arquivo;
         }
     }
 
@@ -110,15 +110,39 @@ public class FonteDados {
 
     private String lerArquivo(File arquivo) throws IOException {
         if (arquivo == null || !arquivo.exists()) {
-            throw new FileNotFoundException("Arquivo não encontrado: " + (arquivo == null ? "null" : arquivo.getAbsolutePath()));
+            throw new FileNotFoundException(
+                    "Arquivo não encontrado: " + (arquivo == null ? "null" : arquivo.getAbsolutePath()));
         }
         return Files.readString(arquivo.toPath()).trim();
     }
 
-    private void escreverArquivo(File arquivo, String conteudo) throws IOException {
+    public void escreverArquivo(File arquivo, String conteudo) throws IOException {
         if (arquivo == null) {
             throw new IOException("Arquivo destino não definido");
         }
-        Files.writeString(arquivo.toPath(), conteudo + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(arquivo.toPath(), conteudo + System.lineSeparator(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
     }
+
+    public List<FonteDadoDTO> listarFontesDados() throws IOException {
+        List<FonteDadoDTO> lista = new ArrayList<>();
+        for (Map.Entry<String, File> entry : arquivos.entrySet()) {
+            String conteudo = lerArquivo(entry.getValue());
+            lista.add(new FonteDadoDTO(entry.getKey(), conteudo));
+        }
+        return lista;
+    }
+
+   
+
+    public File getArquivoPorNome(String nomeArquivo) {
+        return arquivos.get(nomeArquivo);
+    }
+
+    public void escreverArquivoPorNome(String nomeArquivo, String conteudo) throws IOException {
+        File arquivo = arquivos.get(nomeArquivo);
+        escreverArquivo(arquivo, conteudo);
+    }
+    
+
 }

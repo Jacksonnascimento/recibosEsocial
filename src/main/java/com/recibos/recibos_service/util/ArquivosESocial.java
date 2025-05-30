@@ -19,14 +19,14 @@ public class ArquivosESocial {
     
     }
 
-    public String s2200(String matricula, String recibo, String servidor, String database, String user, String senha)
+    public String s2200(String matricula, String recibo)
             throws IOException {
         String update = String.format(fonte.getEventoS2200(), recibo, matricula);
 
         return update;
     }
 
-    public String s2299(String matricula, String recibo, String servidor, String database, String user, String senha)
+    public String s2299(String matricula, String recibo)
             throws IOException {
         String update = String.format(fonte.getEventoS2299(), recibo, matricula);
 
@@ -34,23 +34,21 @@ public class ArquivosESocial {
 
     }
 
-    public String s1200(String cpf, String recibo, String perApur, String servidor, String database, String user,
-            String senha) throws IOException {
+    public String s1200(String cpf, String recibo, String perApur) throws IOException {
         String update = String.format(fonte.getEventosTerceiraFase(), recibo, "S-1200", cpf, perApur, perApur);
 
         return update;
 
     }
 
-    public String s1210(String cpf, String recibo, String perApur, String servidor, String database, String user,
-            String senha) throws IOException {
+    public String s1210(String cpf, String recibo, String perApur) throws IOException {
         String update = String.format(fonte.getEventosTerceiraFase(), recibo, "S-1210", cpf, perApur, perApur);
 
         return update;
 
     }
 
-    public String s3000(String recibo, String servidor, String database, String user, String senha) throws IOException {
+    public String s3000(String recibo) throws IOException {
         String update = String.format(fonte.getEventoS3000(), recibo);
 
         return update;

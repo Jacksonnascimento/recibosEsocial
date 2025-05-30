@@ -1,5 +1,7 @@
 package com.recibos.recibos_service.controller;
 
+import com.recibos.recibos_service.util.FonteDadoDTO;
+import com.recibos.recibos_service.util.FonteDados;
 import com.recibos.recibos_service.util.GeradorSQLRecibo;
 
 import org.springframework.core.io.UrlResource;
@@ -15,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.springframework.http.MediaType;
@@ -135,6 +138,33 @@ public class ReciboController {
                 .contentLength(bytes.length)
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
+    }
+
+    @GetMapping("/fontes-dados")
+    public ResponseEntity<List<FonteDadoDTO>> listarFontesDados() {
+        try {
+            FonteDados fonteDados = new FonteDados();
+            List<FonteDadoDTO> lista = fonteDados.listarFontesDados();
+            return ResponseEntity.ok(lista);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PostMapping("/fontes-dados/editar")
+    public ResponseEntity<Void> editarFonteDado(@RequestBody Map<String, String> payload) {
+        String nomeArquivo = payload.get("nomeArquivo");
+        String conteudo = payload.get("conteudo");
+        try {
+            FonteDados fonteDados = new FonteDados();
+            if (fonteDados.getArquivoPorNome(nomeArquivo) == null) {
+                return ResponseEntity.notFound().build();
+            }
+            fonteDados.escreverArquivoPorNome(nomeArquivo, conteudo);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
 }

@@ -17,33 +17,28 @@ public class GeradorSQLRecibo {
 
     public String gerarSQL(File xmlFile, String nomeArquivoOriginal)
             throws ParserConfigurationException, SAXException, IOException {
-       
 
-       
         String tipoEvento = nomeArquivoOriginal.substring(nomeArquivoOriginal.length() - 8);
 
-        
         leitorXML.infXML(xmlFile, tipoEvento);
 
         String sql = "";
 
         switch (tipoEvento) {
             case "2200.xml":
-                sql = arquivosESocial.s2200(ArquivoXML.getMatricula(), ArquivoXML.getRecibo(), "", "", "", "");
+                sql = arquivosESocial.s2200(ArquivoXML.getMatricula(), ArquivoXML.getRecibo());
                 break;
             case "2299.xml":
-                sql = arquivosESocial.s2299(ArquivoXML.getMatricula(), ArquivoXML.getRecibo(), "", "", "", "");
+                sql = arquivosESocial.s2299(ArquivoXML.getMatricula(), ArquivoXML.getRecibo());
                 break;
             case "1200.xml":
-                sql = arquivosESocial.s1200(ArquivoXML.getCpf(), ArquivoXML.getRecibo(), ArquivoXML.getPerApur(), "",
-                        "", "", "");
+                sql = arquivosESocial.s1200(ArquivoXML.getCpf(), ArquivoXML.getRecibo(), ArquivoXML.getPerApur());
                 break;
             case "1210.xml":
-                sql = arquivosESocial.s1210(ArquivoXML.getCpf(), ArquivoXML.getRecibo(), ArquivoXML.getPerApur(), "",
-                        "", "", "");
+                sql = arquivosESocial.s1210(ArquivoXML.getCpf(), ArquivoXML.getRecibo(), ArquivoXML.getPerApur());
                 break;
             case "3000.xml":
-                sql = arquivosESocial.s3000(ArquivoXML.getNrRecEvt(), "", "", "", "");
+                sql = arquivosESocial.s3000(ArquivoXML.getNrRecEvt());
                 break;
             default:
                 throw new IllegalArgumentException("Tipo de arquivo XML não reconhecido: " + tipoEvento);
