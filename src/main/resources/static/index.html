@@ -116,8 +116,10 @@
 <h1>Gerador de Scripts SQL a partir de XML</h1>
 
 <form id="upload-form">
-  <label for="files">Selecione arquivos XML (pode ser múltiplos):</label>
-  <input type="file" id="files" name="files" accept=".xml" multiple required />
+  <label for="files">Selecione uma pasta (inclui subpastas):</label>
+  
+  <input type="file" id="files" name="files" webkitdirectory mozdirectory required />
+  
   <div class="checkbox-container">
     <label><input type="checkbox" id="modoInsert" name="modoInsert" checked /> Gerar scripts em modo INSERT</label>
   </div>
@@ -128,8 +130,8 @@
 
 <div id="downloads-section" style="display:none;">
   <h3>Processamento Iniciado</h3>
-  <p>O servidor está processando os seus arquivos em segundo plano. <br>
-     Quando terminar (acompanhe pelo console do Java), clique abaixo para baixar tudo em um único arquivo.</p>
+  <p>O servidor está processando os seus ficheiros em segundo plano. <br>
+     Quando terminar (acompanhe pela consola do Java), clique abaixo para baixar tudo num único ficheiro.</p>
   <button id="btn-baixar-completo">📥 Juntar e Baixar Script Completo</button>
 </div>
 
@@ -147,11 +149,11 @@
     const modoInsert = document.getElementById('modoInsert').checked;
 
     if (!files.length) {
-      alert('Selecione ao menos um arquivo XML.');
+      alert('Selecione ao menos um ficheiro XML.');
       return;
     }
 
-    status.textContent = 'Enviando arquivos...';
+    status.textContent = 'Enviando ficheiros...';
     status.style.color = '#333';
     downloadsSection.style.display = 'none';
 
@@ -167,17 +169,15 @@
         body: formData,
       });
 
-      // CORREÇÃO: Lê a resposta como texto puro, não JSON
       const respostaEmTexto = await res.text();
 
       if (!res.ok) {
-        throw new Error(respostaEmTexto || 'Erro ao enviar arquivos.');
+        throw new Error(respostaEmTexto || 'Erro ao enviar ficheiros.');
       }
 
       status.textContent = respostaEmTexto;
       status.style.color = '#27ae60'; 
       
-      // Exibe a área de download
       downloadsSection.style.display = 'block';
 
     } catch (error) {
