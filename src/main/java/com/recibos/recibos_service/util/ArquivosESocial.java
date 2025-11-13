@@ -41,6 +41,15 @@ public class ArquivosESocial {
 
     }
 
+    // NOVO MÉTODO ADICIONADO:
+    public String s1202(String cpf, String recibo, String perApur) throws IOException {
+        // Reutiliza o mesmo template do S-1200, apenas muda o código do evento
+        String update = String.format(fonte.getEventosTerceiraFase(), recibo, "S-1202", cpf, perApur, perApur);
+
+        return update;
+    }
+
+
     public String s1210(String cpf, String recibo, String perApur) throws IOException {
         String update = String.format(fonte.getEventosTerceiraFase(), recibo, "S-1210", cpf, perApur, perApur);
 

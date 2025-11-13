@@ -5,7 +5,7 @@ import java.nio.file.*;
 import java.util.*;
 
 public class FonteDados {
-     
+
     private static final String PASTA_BASE = "arquivos" + File.separator + "recibos-fontes-dados";
     private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator
             + "fontes de dados";
@@ -53,11 +53,15 @@ public class FonteDados {
     private File arquivoS2299;
     private File arquivoS3000;
 
+    // MÉTODO ANTIGO E COM BUG NO S-3000
+    // MÉTODO CORRIGIDO
     public void iniciarCaminhodosEventos(boolean insert) {
         setCampoArquivo("eventosTerceiraFase", buscarArquivo(insert, "eventosTerceiraFase"));
         setCampoArquivo("eventoS2200", buscarArquivo(insert, "eventoS2200"));
         setCampoArquivo("eventoS2299", buscarArquivo(insert, "eventoS2299"));
-        setCampoArquivo("eventoS3000", arquivos.get("eventoS3000.txt"));
+        // CORREÇÃO: Agora o S-3000 também usa o 'buscarArquivo' e respeita a flag
+        // 'insert'
+        setCampoArquivo("eventoS3000", buscarArquivo(insert, "eventoS3000"));
     }
 
     private File buscarArquivo(boolean insert, String base) {
@@ -133,8 +137,6 @@ public class FonteDados {
         return lista;
     }
 
-   
-
     public File getArquivoPorNome(String nomeArquivo) {
         return arquivos.get(nomeArquivo);
     }
@@ -143,6 +145,5 @@ public class FonteDados {
         File arquivo = arquivos.get(nomeArquivo);
         escreverArquivo(arquivo, conteudo);
     }
-    
 
 }
