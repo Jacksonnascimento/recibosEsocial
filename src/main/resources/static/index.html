@@ -136,54 +136,109 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
   const form = document.getElementById('upload-form');
   const status = document.getElementById('status');
   const downloadsSection = document.getElementById('downloads-section');
   const btnBaixarCompleto = document.getElementById('btn-baixar-completo');
+  const btnEnviar = document.getElementById('btn-enviar');
+
+  // Quantos ficheiros enviar por cada requisição.
+  const TAMANHO_LOTE = 500;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const files = document.getElementById('files').files;
+    const filesInput = document.getElementById('files');
     const modoInsert = document.getElementById('modoInsert').checked;
+    
+    // Convertendo FileList para um Array padrão para usar o 'slice'
+    const todosOsFicheiros = Array.from(filesInput.files);
 
-    if (!files.length) {
-      alert('Selecione ao menos um ficheiro XML.');
+    if (!todosOsFicheiros.length) {
+      alert('Selecione ao menos um ficheiro.');
       return;
     }
 
-    status.textContent = 'Enviando ficheiros...';
+    status.textContent = 'Iniciando processamento...';
     status.style.color = '#333';
     downloadsSection.style.display = 'none';
+    btnEnviar.disabled = true; // Desabilitar botão durante o envio
 
-    const formData = new FormData();
-    for (const file of files) {
-      formData.append('files', file);
-    }
-    formData.append('modoInsert', modoInsert);
+    const totalFicheiros = todosOsFicheiros.length;
+    const totalLotes = Math.ceil(totalFicheiros / TAMANHO_LOTE);
+    let ficheirosProcessadosComSucesso = 0;
+
+    console.log(`Total de ficheiros: ${totalFicheiros}. Total de lotes: ${totalLotes} (Tamanho do lote: ${TAMANHO_LOTE})`);
 
     try {
-      const res = await fetch('/api/upload-arquivos', {
-        method: 'POST',
-        body: formData,
+      
+      // --- MUDANÇA: ETAPA 1 - CHAMAR O NOVO ENDPOINT PARA LIMPAR A PASTA ---
+      status.textContent = 'Preparando sessão (limpando diretório)...';
+      const resLimpar = await fetch('/api/iniciar-processamento', {
+          method: 'POST'
       });
+      
+      if (!resLimpar.ok) {
+          throw new Error('Não foi possível iniciar a sessão e limpar a pasta no servidor.');
+      }
+      // --- FIM DA ETAPA 1 ---
 
-      const respostaEmTexto = await res.text();
+      // ETAPA 2: Iterar sobre os lotes (como antes)
+      for (let i = 0; i < totalLotes; i++) {
+        
+        const numeroLote = i + 1;
+        status.textContent = `Enviando lote ${numeroLote} de ${totalLotes}...`;
+        
+        // "Fatiar" o array de ficheiros para o lote atual
+        const inicio = i * TAMANHO_LOTE;
+        const fim = inicio + TAMANHO_LOTE;
+        const ficheirosDoLote = todosOsFicheiros.slice(inicio, fim);
 
-      if (!res.ok) {
-        throw new Error(respostaEmTexto || 'Erro ao enviar ficheiros.');
+        // Criar um FormData APENAS para este lote
+        const formData = new FormData();
+        formData.append('modoInsert', modoInsert);
+        
+        for (const file of ficheirosDoLote) {
+          formData.append('files', file);
+        }
+
+        // Enviar o lote atual
+        const res = await fetch('/api/upload-arquivos', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const respostaEmTexto = await res.text();
+        
+        if (!res.ok) {
+          // Se um lote falhar, paramos o processo
+          throw new Error(`Erro no lote ${numeroLote}: ${respostaEmTexto}`);
+        }
+
+        console.log(`Resposta Lote ${numeroLote}: ${respostaEmTexto}`);
+        
+        // Extrair o número da resposta (ex: "500 ficheiros .xml recebidos...")
+        const match = respostaEmTexto.match(/(\d+)/);
+        if (match) {
+            ficheirosProcessadosComSucesso += parseInt(match[1], 10);
+        }
       }
 
-      status.textContent = respostaEmTexto;
+      // --- FIM DOS LOTES ---
+
+      // Se chegamos aqui, todos os lotes foram enviados com sucesso
+      status.textContent = `Processamento concluído! Total de ${ficheirosProcessadosComSucesso} ficheiros .xml enviados em ${totalLotes} lotes.`;
       status.style.color = '#27ae60'; 
-      
-      downloadsSection.style.display = 'block';
+      downloadsSection.style.display = 'block'; // Mostrar seção de download
 
     } catch (error) {
       status.textContent = 'Erro: ' + error.message;
       status.style.color = '#e74c3c';
       downloadsSection.style.display = 'none';
+    } finally {
+      btnEnviar.disabled = false; // Reabilitar botão ao final
     }
   });
 
@@ -191,6 +246,5 @@
     window.open('/api/download/gerados/completo', '_blank');
   });
 </script>
-
 </body>
 </html>

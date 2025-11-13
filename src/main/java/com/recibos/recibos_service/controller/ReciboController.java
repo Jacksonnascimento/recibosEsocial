@@ -3,7 +3,7 @@ package com.recibos.recibos_service.controller;
 import com.recibos.recibos_service.util.FonteDadoDTO;
 import com.recibos.recibos_service.util.FonteDados;
 import com.recibos.recibos_service.util.ProcessadorBatchService;
-import com.recibos.recibos_service.util.LimpadorDePasta;
+import com.recibos.recibos_service.util.LimpadorDePasta; // <-- MUDANÇA: Import Adicionado
 
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +34,22 @@ public class ReciboController {
 
     @Autowired
     private ProcessadorBatchService processadorBatchService;
+
+    // --- MUDANÇA: NOVO ENDPOINT ADICIONADO ---
+    // Este endpoint será chamado pelo frontend ANTES de enviar o primeiro lote.
+    @PostMapping("/iniciar-processamento")
+    public ResponseEntity<String> iniciarProcessamento() {
+        try {
+            // Limpa a pasta de scripts gerados no início de uma nova sessão.
+            new LimpadorDePasta("scripts_gerados");
+            System.out.println("Pasta 'scripts_gerados' limpa para nova sessão.");
+            return ResponseEntity.ok("Sessão iniciada e pasta limpa.");
+        } catch (Exception e) {
+            System.err.println("Erro ao limpar 'scripts_gerados': " + e.getMessage());
+            return ResponseEntity.status(500).body("Erro ao limpar pasta de scripts.");
+        }
+    }
+    // --- FIM DO NOVO ENDPOINT ---
 
     @PostMapping("/upload-arquivos")
     public ResponseEntity<String> uploadArquivos(
@@ -106,7 +122,7 @@ public class ReciboController {
         }
 
         // 3. Limpar a pasta de scripts gerados antes de iniciar
-        new LimpadorDePasta("scripts_gerados");
+        // new LimpadorDePasta("scripts_gerados"); // <-- MUDANÇA: Linha removida daqui
 
         // 4. Chamar o serviço ASSÍNCRONO
         processadorBatchService.processarLote(loteDir, modoInsert);
