@@ -15,8 +15,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
-
-// --- MUDANÇA: IMPORT ADICIONADO ---
 import org.springframework.web.util.UriUtils; 
 
 import java.io.*;
@@ -42,9 +40,7 @@ public class ReciboController {
     @Autowired
     private StatusSessaoService statusSessaoService; 
 
-    // --- MUDANÇA: CAMINHO ABSOLUTO E ESTÁVEL ---
     private final Path DIRETORIO_BASE_DADOS = Paths.get("C:", "dados_app_recibos");
-    
     private final Path uploadBaseDir = DIRETORIO_BASE_DADOS.resolve("recibos_uploads_pendentes");
     private final String pastaScripts = DIRETORIO_BASE_DADOS.resolve("scripts_gerados").toString();
 
@@ -56,14 +52,10 @@ public class ReciboController {
             System.out.println("Pasta 'scripts_gerados' limpa para nova sessão.");
             
             String sessaoId = UUID.randomUUID().toString();
-            Path sessaoDir = uploadBaseDir.resolve(sessaoId);
-            
-            Files.createDirectories(sessaoDir);
-            
             return ResponseEntity.ok(Map.of("sessaoId", sessaoId));
 
         } catch (Exception e) {
-            System.err.println("Erro ao iniciar processamento e criar diretório de sessão: " + e.getMessage());
+            System.err.println("Erro ao iniciar processamento: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("erro", "Erro ao iniciar sessão no servidor."));
         }
     }
@@ -74,8 +66,13 @@ public class ReciboController {
             @RequestParam("sessaoId") String sessaoId) { 
 
         Path sessaoDir = uploadBaseDir.resolve(sessaoId);
-        if (!Files.exists(sessaoDir)) {
-             return ResponseEntity.status(400).body("ID de Sessão inválido ou expirado.");
+        
+        try {
+            if (!Files.exists(sessaoDir)) {
+                 Files.createDirectories(sessaoDir);
+            }
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body("Erro ao criar diretório de sessão: " + e.getMessage());
         }
 
         int arquivosXmlSalvos = 0;
@@ -87,7 +84,6 @@ public class ReciboController {
             if (!nomeOriginal.toLowerCase().endsWith(".xml")) continue; 
             
             try {
-                // --- MUDANÇA: CORRIGIDO PARA USAR O MÉTODO ESTÁTICO ---
                 String nomeLimpo = UriUtils.decode(nomeOriginal, "UTF-8");
                 String nomeSeguro = nomeLimpo.substring(Math.max(nomeLimpo.lastIndexOf('/'), nomeLimpo.lastIndexOf('\\')) + 1);
 
@@ -118,18 +114,41 @@ public class ReciboController {
         String sessaoId = payload.get("sessaoId");
         boolean modoInsert = Boolean.parseBoolean(payload.get("modoInsert"));
         String filtroPerApur = payload.get("filtroPerApur");
+        String caminhoLocal = payload.get("caminhoLocal");
+        
+        // --- MUDANÇA: Recebe o filtro de evento ---
+        String filtroTipoEvento = payload.get("filtroTipoEvento");
+
 
         if (sessaoId == null || sessaoId.isEmpty()) {
             return ResponseEntity.badRequest().body("sessaoId não fornecido.");
         }
 
-        Path sessaoDir = uploadBaseDir.resolve(sessaoId);
-        if (!Files.exists(sessaoDir)) {
-             return ResponseEntity.status(400).body("ID de Sessão inválido ou não encontrado.");
+        Path diretorioParaProcessar;
+        boolean naoDeletarFonte = false;
+
+        if (caminhoLocal != null && !caminhoLocal.isEmpty()) {
+            System.out.println("Iniciando processamento de CAMINHO LOCAL: " + caminhoLocal);
+            diretorioParaProcessar = Paths.get(caminhoLocal);
+            naoDeletarFonte = true; 
+            
+            if (!Files.exists(diretorioParaProcessar) || !Files.isDirectory(diretorioParaProcessar)) {
+                return ResponseEntity.status(400).body("Caminho local não encontrado ou não é um diretório: " + caminhoLocal);
+            }
+        } else {
+            System.out.println("Iniciando processamento de SESSÃO UPLOAD: " + sessaoId);
+            diretorioParaProcessar = uploadBaseDir.resolve(sessaoId);
+            naoDeletarFonte = false; 
+            
+            if (!Files.exists(diretorioParaProcessar)) {
+                 return ResponseEntity.status(400).body("ID de Sessão de upload não encontrado (provavelmente nenhum ficheiro foi enviado).");
+            }
         }
 
         statusSessaoService.iniciarSessao(sessaoId);
-        processadorBatchService.processarLote(sessaoDir, modoInsert, filtroPerApur);
+        
+        // --- MUDANÇA: Passa o filtro de evento para o serviço ---
+        processadorBatchService.processarLote(sessaoId, diretorioParaProcessar, modoInsert, filtroPerApur, filtroTipoEvento, naoDeletarFonte);
 
         String resposta = "Processamento iniciado para a sessão " + sessaoId + ".";
         return ResponseEntity.accepted().body(resposta);
@@ -141,6 +160,8 @@ public class ReciboController {
         return ResponseEntity.ok(status);
     }
 
+    // ... (Todos os outros endpoints de Download e Fontes de Dados permanecem exatamente iguais) ...
+    
     @GetMapping("/download/gerados/completo")
     public ResponseEntity<Resource> downloadArquivosGeradosCompleto() throws IOException {
         File pastaScriptsFile = new File(pastaScripts);

@@ -24,64 +24,75 @@ public class ProcessadorBatchService {
     private final String pastaScripts = DIRETORIO_BASE_DADOS.resolve("scripts_gerados").toString();
 
 
-    /**
-     * --- MUDANÇA (CORRIGE AVISO 1) ---
-     * O campo 'arquivoOriginal' foi removido, pois não era lido.
-     */
     private static class DtoWrapper {
         final InfoReciboDTO info;
         final String tipoEvento;
         final String nomeOriginal;
-        // final File arquivoOriginal; // Removido
 
-        DtoWrapper(InfoReciboDTO info, String tipoEvento, String nomeOriginal) { // Removido do construtor
+        DtoWrapper(InfoReciboDTO info, String tipoEvento, String nomeOriginal) { 
             this.info = info;
             this.tipoEvento = tipoEvento;
             this.nomeOriginal = nomeOriginal;
-            // this.arquivoOriginal = arquivoOriginal; // Removido
         }
     }
 
+    /**
+     * --- MUDANÇA: Assinatura alterada ---
+     * @param sessaoId O ID para tracking do status
+     * @param diretorioParaProcessar O Path para ler
+     * @param filtroTipoEvento O filtro de evento (ex: "1200.xml" ou "")
+     * @param naoDeletarFonte true se for um caminho local
+     */
     @Async
-    public void processarLote(Path sessaoDir, boolean modoInsert, String filtroPerApur) {
+    public void processarLote(String sessaoId, Path diretorioParaProcessar, boolean modoInsert, String filtroPerApur, String filtroTipoEvento, boolean naoDeletarFonte) {
         
-        String sessaoId = sessaoDir.getFileName().toString();
         int scriptsGerados = 0;
         
         try {
-            System.out.println("Processando SESSÃO " + sessaoId + "...");
+            System.out.println("Processando SESSÃO " + sessaoId + " | Fonte: " + diretorioParaProcessar);
             
-            // Agora esta instanciação deve funcionar, pois o GeradorSQLRecibo foi corrigido
             GeradorSQLRecibo geradorSQL = new GeradorSQLRecibo(modoInsert); 
-            
             ArquivoXML leitorXML = new ArquivoXML();
             Map<String, DtoWrapper> dtosMaisRecentes = new HashMap<>();
-            List<File> arquivosParaDeletar = new ArrayList<>();
+            List<File> arquivosParaDeletar = new ArrayList<>(); 
 
             System.out.println("Sessão " + sessaoId + ": Iniciando Etapa 1 (Parse, Filtro e Deduplicação)...");
             
-            try (var stream = Files.list(sessaoDir)) {
+            try (var stream = Files.list(diretorioParaProcessar)) {
                 stream.forEach(arquivoPath -> {
                     File arquivoTemp = arquivoPath.toFile();
                     String nomeOriginal = arquivoTemp.getName();
-                    arquivosParaDeletar.add(arquivoTemp); 
+                    
+                    if (!naoDeletarFonte) {
+                        arquivosParaDeletar.add(arquivoTemp); 
+                    }
 
                     try {
+                        // --- MUDANÇA: FILTRO DE EVENTO (SERVER-SIDE) ---
+                        // Isto agora funciona para o "Modo Caminho Local"
+                        if (filtroTipoEvento != null && !filtroTipoEvento.isEmpty()) {
+                            if (!nomeOriginal.endsWith(filtroTipoEvento)) {
+                                return; // Salta este ficheiro, não corresponde ao filtro de evento
+                            }
+                        }
+                        // --- FIM DA MUDANÇA ---
+                        
+                        // O ficheiro passou no filtro de evento (ou não há filtro)
+                        
                         String tipoEvento = nomeOriginal.substring(nomeOriginal.length() - 8);
                         InfoReciboDTO info = leitorXML.infXML(arquivoTemp, tipoEvento);
 
+                        // Filtro de Competência (perApur)
                         if (filtroPerApur != null && !filtroPerApur.isEmpty()) {
                             if ("1200.xml".equals(tipoEvento) || "1202.xml".equals(tipoEvento) || "1210.xml".equals(tipoEvento)) {
                                 if (info.getPerApur() == null || !info.getPerApur().equals(filtroPerApur)) {
-                                    return; 
+                                    return; // Salta este ficheiro, não corresponde ao filtro de competência
                                 }
                             }
                         }
 
+                        // Deduplicação
                         String chave = info.getDeduplicationKey(tipoEvento);
-                        
-                        // --- MUDANÇA (CORRIGE AVISO 1) ---
-                        // O 'arquivoTemp' foi removido da chamada do construtor.
                         DtoWrapper wrapperNovo = new DtoWrapper(info, tipoEvento, nomeOriginal);
                         DtoWrapper wrapperExistente = dtosMaisRecentes.get(chave);
 
@@ -100,10 +111,7 @@ public class ProcessadorBatchService {
 
             for (DtoWrapper wrapper : dtosMaisRecentes.values()) {
                 try {
-                    // --- MUDANÇA (CORRIGE ERRO 2) ---
-                    // Esta chamada agora corresponde ao GeradorSQLRecibo.java corrigido.
                     String scriptSQL = geradorSQL.gerarSQL(wrapper.info, wrapper.tipoEvento);
-                    
                     salvarScript(scriptSQL, wrapper.nomeOriginal);
                     scriptsGerados++; 
                     System.out.println("SQL gerado para: " + wrapper.nomeOriginal);
@@ -113,12 +121,16 @@ public class ProcessadorBatchService {
             }
             
             System.out.println("Sessão " + sessaoId + ": Etapa 2 concluída.");
-            System.out.println("Sessão " + sessaoId + ": Iniciando Etapa 3 (Limpeza)...");
-
-            for(File f : arquivosParaDeletar) {
-                f.delete();
+            
+            if (!naoDeletarFonte) {
+                System.out.println("Sessão " + sessaoId + ": Iniciando Etapa 3 (Limpeza da sessão de upload)...");
+                for(File f : arquivosParaDeletar) {
+                    f.delete();
+                }
+                Files.delete(diretorioParaProcessar); 
+            } else {
+                 System.out.println("Sessão " + sessaoId + ": Ignorando limpeza (Modo Caminho Local).");
             }
-            Files.delete(sessaoDir);
             
             System.out.println("Processamento da SESSÃO " + sessaoId + " concluído.");
             statusSessaoService.completarSessao(sessaoId, scriptsGerados);
@@ -128,13 +140,15 @@ public class ProcessadorBatchService {
             statusSessaoService.falharSessao(sessaoId, e.getMessage());
             e.printStackTrace();
             
-            try {
-                Files.walk(sessaoDir)
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-            } catch (IOException ioe) {
-                System.err.println("Erro ao limpar diretório de sessão com falha: " + sessaoId);
+            if (!naoDeletarFonte) {
+                try {
+                    Files.walk(diretorioParaProcessar)
+                        .sorted(java.util.Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+                } catch (IOException ioe) {
+                    System.err.println("Erro ao limpar diretório de sessão com falha: " + sessaoId);
+                }
             }
         }
     }

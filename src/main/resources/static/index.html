@@ -222,7 +222,6 @@
   const TAMANHO_LOTE = 500;
   let pollingInterval = null;
 
-  // --- MUDANÇA: Lógica para trocar os 3 inputs ---
   const radioModoPasta = document.getElementById('radioModoPasta');
   const radioModoFicheiro = document.getElementById('radioModoFicheiro');
   const radioModoCaminho = document.getElementById('radioModoCaminho');
@@ -262,7 +261,6 @@
   radioModoPasta.addEventListener('change', atualizarModoInput);
   radioModoFicheiro.addEventListener('change', atualizarModoInput);
   radioModoCaminho.addEventListener('change', atualizarModoInput);
-  // --- FIM DA MUDANÇA ---
 
 
   function iniciarPollingStatus(sessaoId) {
@@ -304,6 +302,7 @@
     const modoFicheiro = radioModoFicheiro.checked;
     const modoCaminho = radioModoCaminho.checked;
     
+    // --- MUDANÇA: Lê os filtros em TODOS os modos ---
     const modoInsert = document.getElementById('modoInsert').checked;
     const filtroPerApur = document.getElementById('filtroPerApur').value.trim();
     const filtroTipoEvento = document.getElementById('filtroTipoEvento').value;
@@ -315,11 +314,10 @@
     if (pollingInterval) clearInterval(pollingInterval);
 
     let sessaoId = null;
-    let payloadProcessamento = {}; // Payload para a Etapa 3
+    let payloadProcessamento = {};
 
     try {
       
-      // --- ETAPA 1: INICIAR SESSÃO (TODOS OS MODOS PRECISAM DISTO) ---
       status.textContent = 'Preparando sessão (limpando diretório)...';
       const resLimpar = await fetch('/api/iniciar-processamento', { method: 'POST' });
       if (!resLimpar.ok) throw new Error('Não foi possível iniciar a sessão no servidor.');
@@ -330,16 +328,19 @@
       console.log(`Sessão iniciada: ${sessaoId}`);
       
       
-      // --- ETAPA 2: UPLOAD (SÓ SE NÃO FOR MODO CAMINHO) ---
       if (modoPasta || modoFicheiro) {
           
           let filesInput = modoPasta ? inputPasta : inputFicheiro;
           const todosOsFicheiros = Array.from(filesInput.files);
           
+          // --- MUDANÇA: O filtro de evento ainda é aplicado aqui (no frontend) ---
           const ficheirosFiltrados = todosOsFicheiros.filter(file => {
               if (!file.name.toLowerCase().endsWith('.xml')) return false;
-              if (filtroTipoEvento === "") return true; 
-              return file.name.endsWith(filtroTipoEvento);
+              // Aplica o filtro
+              if (filtroTipoEvento !== "" && !file.name.endsWith(filtroTipoEvento)) {
+                  return false;
+              }
+              return true;
           });
 
           if (!ficheirosFiltrados.length) {
@@ -381,36 +382,38 @@
           
           status.textContent = `Upload concluído (${ficheirosEnviadosComSucesso} ficheiros). A iniciar processamento global...`;
           
-          // Define o payload para o modo de UPLOAD
           payloadProcessamento = {
               sessaoId: sessaoId,
               modoInsert: modoInsert,
               filtroPerApur: filtroPerApur,
-              caminhoLocal: "" // Importante: envia vazio
+              // --- MUDANÇA: Envia o filtro de evento (para consistência) ---
+              // Embora os ficheiros já estejam filtrados, o backend pode querer saber
+              filtroTipoEvento: filtroTipoEvento,
+              caminhoLocal: "" 
           };
           
       } else if (modoCaminho) {
-          // --- MUDANÇA: MODO CAMINHO LOCAL ---
           const caminhoLocal = inputCaminho.value;
           if (!caminhoLocal) throw new Error("O caminho da pasta local no servidor não pode estar vazio.");
           
           status.textContent = `Upload ignorado. A iniciar processamento local para: ${caminhoLocal}`;
           
-          // Define o payload para o modo LOCAL
+          // --- MUDANÇA: Envia AMBOS os filtros para o backend ---
           payloadProcessamento = {
-              sessaoId: sessaoId, // Usado para o tracking de status
+              sessaoId: sessaoId,
               modoInsert: modoInsert,
               filtroPerApur: filtroPerApur,
-              caminhoLocal: caminhoLocal // Importante: envia o caminho
+              filtroTipoEvento: filtroTipoEvento, // Envia o filtro de evento
+              caminhoLocal: caminhoLocal 
           };
       }
       
 
-      // --- ETAPA 3: DISPARAR O PROCESSAMENTO (COMUM A TODOS OS MODOS) ---
+      // --- ETAPA 3: DISPARAR O PROCESSAMENTO ---
       const resProcessar = await fetch('/api/processar-sessao', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadProcessamento) // Envia o payload correto
+          body: JSON.stringify(payloadProcessamento)
       });
       
       const respostaProcessamento = await resProcessar.text();
@@ -432,7 +435,6 @@
     window.open('/api/download/gerados/completo', '_blank');
   });
   
-  // --- MUDANÇA: Chamar a função no início ---
   atualizarModoInput();
   
 </script>
