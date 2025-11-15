@@ -3,7 +3,8 @@ package com.recibos.recibos_service.controller;
 import com.recibos.recibos_service.util.FonteDadoDTO;
 import com.recibos.recibos_service.util.FonteDados;
 import com.recibos.recibos_service.util.ProcessadorBatchService;
-import com.recibos.recibos_service.util.LimpadorDePasta; // <-- MUDANÇA: Import Adicionado
+import com.recibos.recibos_service.util.LimpadorDePasta; 
+import com.recibos.recibos_service.util.StatusSessaoService; 
 
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
+
+// --- MUDANÇA: IMPORT ADICIONADO ---
+import org.springframework.web.util.UriUtils; 
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -35,116 +39,117 @@ public class ReciboController {
     @Autowired
     private ProcessadorBatchService processadorBatchService;
 
-    // --- MUDANÇA: NOVO ENDPOINT ADICIONADO ---
-    // Este endpoint será chamado pelo frontend ANTES de enviar o primeiro lote.
+    @Autowired
+    private StatusSessaoService statusSessaoService; 
+
+    // --- MUDANÇA: CAMINHO ABSOLUTO E ESTÁVEL ---
+    private final Path DIRETORIO_BASE_DADOS = Paths.get("C:", "dados_app_recibos");
+    
+    private final Path uploadBaseDir = DIRETORIO_BASE_DADOS.resolve("recibos_uploads_pendentes");
+    private final String pastaScripts = DIRETORIO_BASE_DADOS.resolve("scripts_gerados").toString();
+
+
     @PostMapping("/iniciar-processamento")
-    public ResponseEntity<String> iniciarProcessamento() {
+    public ResponseEntity<Map<String, String>> iniciarProcessamento() {
         try {
-            // Limpa a pasta de scripts gerados no início de uma nova sessão.
-            new LimpadorDePasta("scripts_gerados");
+            new LimpadorDePasta(pastaScripts);
             System.out.println("Pasta 'scripts_gerados' limpa para nova sessão.");
-            return ResponseEntity.ok("Sessão iniciada e pasta limpa.");
+            
+            String sessaoId = UUID.randomUUID().toString();
+            Path sessaoDir = uploadBaseDir.resolve(sessaoId);
+            
+            Files.createDirectories(sessaoDir);
+            
+            return ResponseEntity.ok(Map.of("sessaoId", sessaoId));
+
         } catch (Exception e) {
-            System.err.println("Erro ao limpar 'scripts_gerados': " + e.getMessage());
-            return ResponseEntity.status(500).body("Erro ao limpar pasta de scripts.");
+            System.err.println("Erro ao iniciar processamento e criar diretório de sessão: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("erro", "Erro ao iniciar sessão no servidor."));
         }
     }
-    // --- FIM DO NOVO ENDPOINT ---
 
-    @PostMapping("/upload-arquivos")
-    public ResponseEntity<String> uploadArquivos(
+    @PostMapping("/upload-lote")
+    public ResponseEntity<String> uploadLote(
             @RequestParam("files") MultipartFile[] files,
-            @RequestParam(name = "modoInsert", defaultValue = "true") boolean modoInsert) {
+            @RequestParam("sessaoId") String sessaoId) { 
 
-        if (files == null || files.length == 0) {
-            return ResponseEntity.badRequest().body("Nenhum ficheiro enviado.");
+        Path sessaoDir = uploadBaseDir.resolve(sessaoId);
+        if (!Files.exists(sessaoDir)) {
+             return ResponseEntity.status(400).body("ID de Sessão inválido ou expirado.");
         }
 
-        // 1. Definir um diretório base estável no home do utilizador
-        String userHome = System.getProperty("user.home");
-        String loteId = UUID.randomUUID().toString();
-        Path loteDir = Paths.get(userHome, "recibos_uploads_pendentes", loteId);
-        
-        try {
-            Files.createDirectories(loteDir);
-        } catch (IOException e) {
-            System.err.println("Erro ao criar diretório de lote: " + loteDir.toAbsolutePath() + " | Erro: " + e.getMessage());
-            return ResponseEntity.status(500).body("Erro interno ao criar diretório de lote.");
-        }
-
-        // MUDANÇA: Contador para ficheiros XML
         int arquivosXmlSalvos = 0;
 
-        // 2. Salvar todos os ficheiros da requisição neste diretório
         for (MultipartFile file : files) {
             if (file.isEmpty() || file.getOriginalFilename() == null) continue;
             
             String nomeOriginal = file.getOriginalFilename();
-
-            // --- MUDANÇA CRÍTICA: FILTRAR APENAS XML ---
-            // Se o nome do ficheiro (incluindo o caminho da subpasta) não terminar com .xml, ignore-o
-            if (!nomeOriginal.toLowerCase().endsWith(".xml")) {
-                System.out.println("Ignorando ficheiro (não é XML): " + nomeOriginal);
-                continue; 
-            }
+            if (!nomeOriginal.toLowerCase().endsWith(".xml")) continue; 
             
             try {
-                // Obter apenas o nome do ficheiro, removendo a estrutura de pastas
-                String nomeSeguro = Paths.get(nomeOriginal).getFileName().toString(); 
+                // --- MUDANÇA: CORRIGIDO PARA USAR O MÉTODO ESTÁTICO ---
+                String nomeLimpo = UriUtils.decode(nomeOriginal, "UTF-8");
+                String nomeSeguro = nomeLimpo.substring(Math.max(nomeLimpo.lastIndexOf('/'), nomeLimpo.lastIndexOf('\\')) + 1);
+
+                if (nomeSeguro.isEmpty()) continue; 
+
+                File arquivoDestino = sessaoDir.resolve(nomeSeguro).toFile();
                 
-                File arquivoDestino = loteDir.resolve(nomeSeguro).toFile();
-                
-                // Evitar sobreposição de nomes de ficheiros iguais de subpastas diferentes
                 if (arquivoDestino.exists()) {
-                     // Adiciona um prefixo único se o nome já existir
-                     arquivoDestino = loteDir.resolve(UUID.randomUUID().toString() + "_" + nomeSeguro).toFile();
+                     arquivoDestino = sessaoDir.resolve(UUID.randomUUID().toString() + "_" + nomeSeguro).toFile();
                 }
 
                 file.transferTo(arquivoDestino);
-                arquivosXmlSalvos++; // Incrementa o contador
+                arquivosXmlSalvos++;
 
             } catch (IOException e) {
                 System.err.println("Erro ao salvar ficheiro " + file.getOriginalFilename() + ": " + e.getMessage());
-                e.printStackTrace(); 
                 return ResponseEntity.status(500).body("Erro ao salvar ficheiros. Verifique os logs.");
             }
         }
+        
+        return ResponseEntity.ok(arquivosXmlSalvos + " ficheiros .xml recebidos e salvos na sessão " + sessaoId);
+    }
+    
+    
+    @PostMapping("/processar-sessao")
+    public ResponseEntity<String> processarSessao(@RequestBody Map<String, String> payload) {
+        
+        String sessaoId = payload.get("sessaoId");
+        boolean modoInsert = Boolean.parseBoolean(payload.get("modoInsert"));
+        String filtroPerApur = payload.get("filtroPerApur");
 
-        // Se nenhum XML foi encontrado
-        if (arquivosXmlSalvos == 0) {
-            System.out.println("Nenhum ficheiro XML encontrado no lote: " + loteId);
-             try {
-                Files.delete(loteDir); // Limpa o diretório de lote vazio
-            } catch (IOException e) {
-                System.err.println("Erro ao limpar diretório de lote vazio: " + loteId);
-            }
-            return ResponseEntity.badRequest().body("Nenhum ficheiro .xml válido foi encontrado na pasta selecionada.");
+        if (sessaoId == null || sessaoId.isEmpty()) {
+            return ResponseEntity.badRequest().body("sessaoId não fornecido.");
         }
 
-        // 3. Limpar a pasta de scripts gerados antes de iniciar
-        // new LimpadorDePasta("scripts_gerados"); // <-- MUDANÇA: Linha removida daqui
+        Path sessaoDir = uploadBaseDir.resolve(sessaoId);
+        if (!Files.exists(sessaoDir)) {
+             return ResponseEntity.status(400).body("ID de Sessão inválido ou não encontrado.");
+        }
 
-        // 4. Chamar o serviço ASSÍNCRONO
-        processadorBatchService.processarLote(loteDir, modoInsert);
+        statusSessaoService.iniciarSessao(sessaoId);
+        processadorBatchService.processarLote(sessaoDir, modoInsert, filtroPerApur);
 
-        // 5. Retornar resposta imediata em TEXTO
-        String resposta = arquivosXmlSalvos + " ficheiros .xml recebidos. O processamento foi iniciado em segundo plano (Lote: " + loteId + ").";
+        String resposta = "Processamento iniciado para a sessão " + sessaoId + ".";
         return ResponseEntity.accepted().body(resposta);
     }
 
-    // --- NOVO MÉTODO PARA BAIXAR TUDO NUM ÚNICO FICHEIRO ---
+    @GetMapping("/sessao-status")
+    public ResponseEntity<StatusSessaoService.StatusSessao> getSessaoStatus(@RequestParam String sessaoId) {
+        StatusSessaoService.StatusSessao status = statusSessaoService.getStatus(sessaoId);
+        return ResponseEntity.ok(status);
+    }
+
     @GetMapping("/download/gerados/completo")
     public ResponseEntity<Resource> downloadArquivosGeradosCompleto() throws IOException {
-        File pastaScripts = new File("scripts_gerados");
-        if (!pastaScripts.exists() || !pastaScripts.isDirectory()) {
+        File pastaScriptsFile = new File(pastaScripts);
+        if (!pastaScriptsFile.exists() || !pastaScriptsFile.isDirectory()) {
             return ResponseEntity.status(404).body(null);
         }
-
-        // Listar ficheiros .sql
-        File[] arquivosSql = pastaScripts.listFiles((dir, name) -> name.toLowerCase().endsWith(".sql"));
-
+        File[] arquivosSql = pastaScriptsFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".sql"));
         if (arquivosSql == null || arquivosSql.length == 0) {
-            String aviso = "-- Nenhum script .sql encontrado na pasta scripts_gerados.\n";
+            String aviso = "-- Nenhum script .sql encontrado na pasta " + pastaScripts + ".\n";
             byte[] bytes = aviso.getBytes(StandardCharsets.UTF_8);
             ByteArrayResource resource = new ByteArrayResource(bytes);
             return ResponseEntity.ok()
@@ -153,14 +158,10 @@ public class ReciboController {
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(resource);
         }
-        
-        // Ordenar para manter a ordem consistente
         Arrays.sort(arquivosSql); 
-
         StringBuilder conteudoCompleto = new StringBuilder();
         conteudoCompleto.append("-- SCRIPT CONSOLIDADO - SISTEMA DE IMPORTAÇÃO\n");
         conteudoCompleto.append("-- Total de ficheiros processados: ").append(arquivosSql.length).append("\n\n");
-
         for (File file : arquivosSql) {
             try {
                 String conteudo = Files.readString(file.toPath());
@@ -170,10 +171,8 @@ public class ReciboController {
                 System.err.println("Erro ao ler ficheiro " + file.getName() + ": " + e.getMessage());
             }
         }
-
         byte[] bytes = conteudoCompleto.toString().getBytes(StandardCharsets.UTF_8);
         ByteArrayResource resource = new ByteArrayResource(bytes);
-
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"scripts_consolidado.sql\"")
                 .contentLength(bytes.length)
@@ -181,11 +180,9 @@ public class ReciboController {
                 .body(resource);
     }
 
-    // --- Endpoints Legados / Auxiliares ---
-
     @GetMapping("/download/{nomeArquivo}")
     public ResponseEntity<Resource> downloadArquivo(@PathVariable String nomeArquivo) throws IOException {
-        File file = new File("scripts_gerados", nomeArquivo);
+        File file = new File(pastaScripts, nomeArquivo);
         if (!file.exists()) {
             return ResponseEntity.notFound().build();
         }
@@ -201,7 +198,7 @@ public class ReciboController {
         StreamingResponseBody stream = outputStream -> {
             try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
                 for (String nomeArquivo : arquivos) {
-                    File file = new File("scripts_gerados", nomeArquivo);
+                    File file = new File(pastaScripts, nomeArquivo);
                     if (file.exists()) {
                         zos.putNextEntry(new ZipEntry(file.getName()));
                         try (InputStream fis = new FileInputStream(file)) {
@@ -225,7 +222,7 @@ public class ReciboController {
         }
         StringBuilder conteudoCompleto = new StringBuilder();
         for (String nomeArquivo : arquivos) {
-            File file = new File("scripts_gerados", nomeArquivo);
+            File file = new File(pastaScripts, nomeArquivo);
             if (file.exists()) {
                 String conteudo = Files.readString(file.toPath());
                 conteudoCompleto.append("-- Início do script: ").append(nomeArquivo).append("\n");

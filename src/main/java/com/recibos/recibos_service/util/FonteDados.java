@@ -6,7 +6,12 @@ import java.util.*;
 
 public class FonteDados {
 
-    private static final String PASTA_BASE = "arquivos" + File.separator + "recibos-fontes-dados";
+    // --- MUDANÇA: CAMINHO ABSOLUTO E ESTÁVEL ---
+    private static final String DIRETORIO_BASE_DADOS = "C:" + File.separator + "dados_app_recibos";
+
+    // Aponta a pasta de configuração para dentro do diretório-mãe
+    private static final String PASTA_BASE = DIRETORIO_BASE_DADOS + File.separator + "arquivos" + File.separator + "recibos-fontes-dados";
+    
     private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator
             + "fontes de dados";
 
@@ -47,20 +52,16 @@ public class FonteDados {
         }
     }
 
-    // Os campos dos arquivos
+    // Campos dos arquivos
     private File arquivoEventosTerceiraFase;
     private File arquivoS2200;
     private File arquivoS2299;
     private File arquivoS3000;
 
-    // MÉTODO ANTIGO E COM BUG NO S-3000
-    // MÉTODO CORRIGIDO
     public void iniciarCaminhodosEventos(boolean insert) {
         setCampoArquivo("eventosTerceiraFase", buscarArquivo(insert, "eventosTerceiraFase"));
         setCampoArquivo("eventoS2200", buscarArquivo(insert, "eventoS2200"));
         setCampoArquivo("eventoS2299", buscarArquivo(insert, "eventoS2299"));
-        // CORREÇÃO: Agora o S-3000 também usa o 'buscarArquivo' e respeita a flag
-        // 'insert'
         setCampoArquivo("eventoS3000", buscarArquivo(insert, "eventoS3000"));
     }
 
@@ -78,8 +79,7 @@ public class FonteDados {
         }
     }
 
-    // Métodos get/set que usam os arquivos
-
+    // Métodos get/set
     public String getEventosTerceiraFase() throws IOException {
         return lerArquivo(arquivoEventosTerceiraFase);
     }
@@ -112,6 +112,7 @@ public class FonteDados {
         escreverArquivo(arquivoS3000, fonte);
     }
 
+    // Métodos de leitura/escrita
     private String lerArquivo(File arquivo) throws IOException {
         if (arquivo == null || !arquivo.exists()) {
             throw new FileNotFoundException(
@@ -128,6 +129,7 @@ public class FonteDados {
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 
+    // Métodos para o editor de Fontes de Dados
     public List<FonteDadoDTO> listarFontesDados() throws IOException {
         List<FonteDadoDTO> lista = new ArrayList<>();
         for (Map.Entry<String, File> entry : arquivos.entrySet()) {
@@ -145,5 +147,4 @@ public class FonteDados {
         File arquivo = arquivos.get(nomeArquivo);
         escreverArquivo(arquivo, conteudo);
     }
-
 }

@@ -2,30 +2,30 @@ package com.recibos.recibos_service.util;
 
 import java.io.File;
 import java.io.IOException;
-import javax.xml.parsers.ParserConfigurationException;
-import org.xml.sax.SAXException;
+import java.net.URISyntaxException; // Adicionado
+// Imports de XML/SAX removidos
 
 public class GeradorSQLRecibo {
 
-    private final ArquivoXML leitorXML;
+    // private final ArquivoXML leitorXML; // Removido
     private final ArquivosESocial arquivosESocial;
 
-    public GeradorSQLRecibo(boolean modoInsert) throws Exception {
-        this.leitorXML = new ArquivoXML();
+    public GeradorSQLRecibo(boolean modoInsert) throws Exception { // Alterado
+        // this.leitorXML = new ArquivoXML(); // Removido
         this.arquivosESocial = new ArquivosESocial(modoInsert); 
     }
 
-    public String gerarSQL(File xmlFile, String nomeArquivoOriginal)
-            throws ParserConfigurationException, SAXException, IOException {
-
-        String tipoEvento = nomeArquivoOriginal.substring(nomeArquivoOriginal.length() - 8);
-
-        // 1. Chama o método refatorado que RETORNA o DTO
-        InfoReciboDTO info = leitorXML.infXML(xmlFile, tipoEvento);
+    /**
+     * --- MUDANÇA CRÍTICA ---
+     * O método agora recebe o DTO pré-processado, e não o ficheiro.
+     * Isto corrige o Erro 2 (Linha 97).
+     */
+    public String gerarSQL(InfoReciboDTO info, String tipoEvento)
+            throws IOException {
 
         String sql = "";
 
-        // 2. Usa o DTO 'info' ao invés de getters estáticos
+        // Usa o DTO 'info' recebido por parâmetro
         switch (tipoEvento) {
             case "2200.xml":
                 sql = arquivosESocial.s2200(info.getMatricula(), info.getRecibo());
@@ -36,7 +36,6 @@ public class GeradorSQLRecibo {
             case "1200.xml":
                 sql = arquivosESocial.s1200(info.getCpf(), info.getRecibo(), info.getPerApur());
                 break;
-            // NOVA ADIÇÃO:
             case "1202.xml":
                 sql = arquivosESocial.s1202(info.getCpf(), info.getRecibo(), info.getPerApur());
                 break;
@@ -44,7 +43,6 @@ public class GeradorSQLRecibo {
                 sql = arquivosESocial.s1210(info.getCpf(), info.getRecibo(), info.getPerApur());
                 break;
             case "3000.xml":
-                // O s3000 usa o nrRecEvt, não o nrRecibo
                 sql = arquivosESocial.s3000(info.getNrRecEvt()); 
                 break;
             default:
