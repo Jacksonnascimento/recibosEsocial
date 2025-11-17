@@ -15,11 +15,14 @@ public class FonteDados {
     private static final String PASTA_CONFIG = PASTA_BASE + File.separator + "config" + File.separator
             + "fontes de dados";
 
+    // --- MUDANÇA: Adicionados eventos S-2300 ---
     private static final List<String> NOMES_ARQUIVOS = Arrays.asList(
             "eventoS2200.txt",
             "eventoS2200_insert.txt",
             "eventoS2299.txt",
             "eventoS2299_insert.txt",
+            "eventoS2300.txt", // ADICIONADO
+            "eventoS2300_insert.txt", // ADICIONADO
             "eventoS3000.txt",
             "eventoS3000_insert.txt",
             "eventosTerceiraFase.txt",
@@ -56,12 +59,14 @@ public class FonteDados {
     private File arquivoEventosTerceiraFase;
     private File arquivoS2200;
     private File arquivoS2299;
+    private File arquivoS2300; // ADICIONADO
     private File arquivoS3000;
 
     public void iniciarCaminhodosEventos(boolean insert) {
         setCampoArquivo("eventosTerceiraFase", buscarArquivo(insert, "eventosTerceiraFase"));
         setCampoArquivo("eventoS2200", buscarArquivo(insert, "eventoS2200"));
         setCampoArquivo("eventoS2299", buscarArquivo(insert, "eventoS2299"));
+        setCampoArquivo("eventoS2300", buscarArquivo(insert, "eventoS2300")); // ADICIONADO
         setCampoArquivo("eventoS3000", buscarArquivo(insert, "eventoS3000"));
     }
 
@@ -75,6 +80,7 @@ public class FonteDados {
             case "eventosTerceiraFase" -> this.arquivoEventosTerceiraFase = arquivo;
             case "eventoS2200" -> this.arquivoS2200 = arquivo;
             case "eventoS2299" -> this.arquivoS2299 = arquivo;
+            case "eventoS2300" -> this.arquivoS2300 = arquivo; // ADICIONADO
             case "eventoS3000" -> this.arquivoS3000 = arquivo;
         }
     }
@@ -103,6 +109,16 @@ public class FonteDados {
     public void setEventoS2299(String fonte) throws IOException {
         escreverArquivo(arquivoS2299, fonte);
     }
+
+    // --- MÉTODOS ADICIONADOS PARA S-2300 ---
+    public String getEventoS2300() throws IOException {
+        return lerArquivo(arquivoS2300);
+    }
+
+    public void setEventoS2300(String fonte) throws IOException {
+        escreverArquivo(arquivoS2300, fonte);
+    }
+    // --- FIM DOS MÉTODOS ADICIONADOS ---
 
     public String getEventoS3000() throws IOException {
         return lerArquivo(arquivoS3000);

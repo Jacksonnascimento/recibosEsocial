@@ -46,6 +46,7 @@ public class ArquivoXML {
         switch(tipoArquivoEve){
             case "2200.xml": return "evtAdmissao";
             case "2299.xml": return "evtDeslig";
+            case "2300.xml": return "evtTSSVInicio"; // ADICIONADO (Assumindo tag padrão)
             case "1200.xml": return "evtRemun";
             case "1202.xml": return "evtRmnRPPS";
             case "1210.xml": return "evtPgtos";

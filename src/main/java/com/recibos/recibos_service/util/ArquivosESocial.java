@@ -34,6 +34,15 @@ public class ArquivosESocial {
 
     }
 
+    // --- NOVO MÉTODO ADICIONADO PARA S-2300 ---
+    public String s2300(String matricula, String recibo)
+            throws IOException {
+        String update = String.format(fonte.getEventoS2300(), recibo, matricula);
+
+        return update;
+    }
+    // --- FIM DO NOVO MÉTODO ---
+
     public String s1200(String cpf, String recibo, String perApur) throws IOException {
         String update = String.format(fonte.getEventosTerceiraFase(), recibo, "S-1200", cpf, perApur, perApur);
 

@@ -30,6 +30,11 @@ public class GeradorSQLRecibo {
             case "2200.xml":
                 sql = arquivosESocial.s2200(info.getMatricula(), info.getRecibo());
                 break;
+            // --- CASE ADICIONADO ---
+            case "2300.xml":
+                sql = arquivosESocial.s2300(info.getMatricula(), info.getRecibo());
+                break;
+            // --- FIM DA ADIÇÃO ---
             case "2299.xml":
                 sql = arquivosESocial.s2299(info.getMatricula(), info.getRecibo());
                 break;
