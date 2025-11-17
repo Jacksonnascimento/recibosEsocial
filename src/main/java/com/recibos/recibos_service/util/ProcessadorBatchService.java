@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;   
 import java.util.List;      
 import java.util.Map;       
+import java.util.stream.Stream; // Importar java.util.stream.Stream
 
 @Service
 public class ProcessadorBatchService {
@@ -58,13 +59,19 @@ public class ProcessadorBatchService {
 
             System.out.println("Sessão " + sessaoId + ": Iniciando Etapa 1 (Parse, Filtro e Deduplicação)...");
             
-            try (var stream = Files.list(diretorioParaProcessar)) {
-                stream.forEach(arquivoPath -> {
+            // --- MUDANÇA APLICADA: 'Files.list' substituído por 'Files.walk' ---
+            // --- E adicionado .filter(Files::isRegularFile) ---
+            try (Stream<Path> stream = Files.walk(diretorioParaProcessar)) {
+                stream.filter(Files::isRegularFile).forEach(arquivoPath -> {
                     File arquivoTemp = arquivoPath.toFile();
                     String nomeOriginal = arquivoTemp.getName();
                     
                     if (!naoDeletarFonte) {
-                        arquivosParaDeletar.add(arquivoTemp); 
+                        // Se não for modo "caminho local", marca para deletar (lógica de upload)
+                        // Apenas adiciona arquivos, não o diretório raiz
+                        if(!arquivoTemp.isDirectory()) {
+                            arquivosParaDeletar.add(arquivoTemp); 
+                        }
                     }
 
                     try {
@@ -127,7 +134,7 @@ public class ProcessadorBatchService {
                 for(File f : arquivosParaDeletar) {
                     f.delete();
                 }
-                Files.delete(diretorioParaProcessar); 
+                Files.delete(diretorioParaProcessar); // Deleta a pasta da sessão
             } else {
                  System.out.println("Sessão " + sessaoId + ": Ignorando limpeza (Modo Caminho Local).");
             }
@@ -142,6 +149,7 @@ public class ProcessadorBatchService {
             
             if (!naoDeletarFonte) {
                 try {
+                    // Tenta limpar o diretório da sessão em caso de falha
                     Files.walk(diretorioParaProcessar)
                         .sorted(java.util.Comparator.reverseOrder())
                         .map(Path::toFile)
