@@ -7,11 +7,11 @@ import time
 import zipfile  # Necessário para ler arquivos .zip
 
 # --- CONFIGURAÇÃO ---
-PASTA_ORIGEM = r'C:\Users\jacks\Downloads\RECIBOS'
+PASTA_ORIGEM = r'C:\Users\jacks\Downloads\JUAZEIRO\JUAZEIRO'
 PASTA_DESTINO = r'C:\Users\jacks\Downloads\Destino'
 
 # Valor do Recibo
-VALOR_PROCURADO = '1.1.0000000035622144335'
+VALOR_PROCURADO = '1.1.0000000035622958733'
 
 # Tag XML alvo
 TAG_ALVO = 'nrRecibo'
